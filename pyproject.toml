@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-tokenscope"
-version = "0.2.1"
+version = "0.2.2"
 description = "Profile your LLM payloads. Find the waste. Cut the cost."
 readme = "README.md"
 license = { text = "MIT" }

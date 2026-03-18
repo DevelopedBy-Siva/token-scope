@@ -1,8 +1,8 @@
-
 from dataclasses import dataclass, field as dataclass_field
 from datetime import date
 from enum import Enum
 from typing import NamedTuple
+
 
 
 
@@ -14,9 +14,8 @@ class ModelPricing(NamedTuple):
     model_id: str
     display_name: str
     provider: str
-    input_per_million: float   
+    input_per_million: float    
     output_per_million: float  
-
 
 MODELS: dict[str, ModelPricing] = {
     "gpt-4o": ModelPricing(
@@ -66,7 +65,6 @@ MODELS: dict[str, ModelPricing] = {
 DEFAULT_MODEL = "gpt-4o"
 
 
-
 @dataclass
 class RequestCost:
     """Cost breakdown for a single API request."""
@@ -78,7 +76,7 @@ class RequestCost:
     input_cost_usd: float          
 
     output_tokens: int
-    output_cost_usd: float         
+    output_cost_usd: float          
 
     total_cost_usd: float           
 
@@ -141,6 +139,7 @@ class CostComparison:
     @property
     def daily_savings_usd(self) -> float:
         return self.cost_saved_per_request * self.requests_per_day
+
 
 
 class Calculator:
@@ -263,13 +262,16 @@ class Calculator:
         ]
         return sorted(costs, key=lambda c: c.total_cost_usd)
 
-
+ 
     @staticmethod
     def _get_pricing(model_id: str) -> ModelPricing:
         if model_id not in MODELS:
-            available = ", ".join(MODELS.keys())
-            raise ValueError(
-                f"Unknown model '{model_id}'. Available: {available}"
+            return ModelPricing(
+                model_id=model_id,
+                display_name=model_id,
+                provider="Unknown",
+                input_per_million=0.0,
+                output_per_million=0.0,
             )
         return MODELS[model_id]
 
@@ -279,7 +281,6 @@ class Calculator:
         if tokens == 0:
             return 0.0
         return round((tokens / 1_000_000) * price_per_million, 10)
-
 
 
 _default_calculator = Calculator()
