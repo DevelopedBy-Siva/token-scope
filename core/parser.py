@@ -3,7 +3,7 @@ from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from typing import Any
 
-from tokenizer import Tokenizer
+from core.tokenizer import Tokenizer
 
 
 class FieldType(str, Enum):
@@ -112,7 +112,6 @@ class Parser:
 
     def _record(self, path: str, key: str, value: Any, depth: int, fields: list[ParsedField], token_map: dict) -> None:
         raw, attributed, pct = token_map.get(path, (0, 0, 0.0))
-
         fields.append(ParsedField(
             path=path,
             key=key,

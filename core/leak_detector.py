@@ -3,7 +3,7 @@ import hashlib
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 
-from parser import ParsedPayload, ParsedField, FieldType
+from core.parser import ParsedPayload, ParsedField, FieldType
 
 
 class Severity(str, Enum):

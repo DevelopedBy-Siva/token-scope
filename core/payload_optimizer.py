@@ -3,8 +3,8 @@ import re
 from dataclasses import dataclass, field as dataclass_field
 from typing import Any
 
-from leak_detector import CostLeak, RuleId
-from parser import ParsedPayload, parse_payload
+from core.leak_detector import CostLeak, RuleId
+from core.parser import ParsedPayload, parse_payload
 
 
 LOW_SIGNAL_KEY_PATTERN = re.compile(
