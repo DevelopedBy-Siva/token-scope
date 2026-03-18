@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tokenscope"
+name = "llm-tokenscope"
 version = "0.1.0"
 description = "Profile your LLM payloads. Find the waste. Cut the cost."
 readme = "README.md"
