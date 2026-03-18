@@ -218,3 +218,7 @@ tests/
 reports/
 
 smoke_test_sdk.py
+
+dist_pkg/
+dist/
+*.egg-info/
