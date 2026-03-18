@@ -1,0 +1,6 @@
+tiktoken
+fastapi
+uvicorn[standard]
+pydantic
+httpx
+openai
