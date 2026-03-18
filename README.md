@@ -1,4 +1,4 @@
-# TokenScope 🔬
+# TokenScope
 
 ### Profile your LLM payloads. Find the waste. Cut the cost.
 

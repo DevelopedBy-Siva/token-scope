@@ -39,6 +39,7 @@ def generate_report(session, open_browser: bool = True) -> str:
             "model": call.model,
             "input_tokens": call.input_tokens,
             "output_tokens": call.output_tokens,
+            "analyzed_tokens": call.analyzed_tokens,
             "total_tokens": call.input_tokens + call.output_tokens,
             "input_cost_usd": call.input_cost_usd,
             "output_cost_usd": call.output_cost_usd,
@@ -55,6 +56,7 @@ def generate_report(session, open_browser: bool = True) -> str:
         "total_calls": len(session.calls),
         "total_input_tokens": session.total_input_tokens,
         "total_output_tokens": session.total_output_tokens,
+        "total_analyzed_tokens": session.total_analyzed_tokens,
         "total_cost_usd": round(session.total_cost_usd, 6),
         "total_tokens_saved": session.total_tokens_saved,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -71,7 +73,7 @@ def generate_report(session, open_browser: bool = True) -> str:
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    print(f"\nTokenScope Report → {output_path}")
+    print(f"\n📊 TokenScope Report → {output_path}")
     print(f"   {summary['total_calls']} calls · {summary['total_input_tokens']:,} input tokens · ${summary['total_cost_usd']:.4f} total cost")
     if summary["total_tokens_saved"] > 0:
         print(f"   💡 {summary['total_tokens_saved']:,} tokens could be saved with optimization")
@@ -160,8 +162,12 @@ def _build_html(summary: dict, calls: list) -> str:
     <div class="metric-value">{summary['total_calls']}</div>
   </div>
   <div class="metric">
-    <div class="metric-label">Input Tokens</div>
+    <div class="metric-label">Sent Tokens</div>
     <div class="metric-value">{summary['total_input_tokens']:,}</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Analyzed Tokens</div>
+    <div class="metric-value">{summary['total_analyzed_tokens']:,}</div>
   </div>
   <div class="metric">
     <div class="metric-label">Output Tokens</div>
@@ -232,7 +238,7 @@ function renderCalls() {{
           <div class="call-num">${{call.index}}</div>
           <div>
             <div class="call-model">${{call.model}}</div>
-            <div class="call-meta">${{call.input_tokens.toLocaleString()}} input · ${{call.output_tokens.toLocaleString()}} output · ${{call.duration_ms}}ms</div>
+            <div class="call-meta">${{call.input_tokens.toLocaleString()}} sent · ${{call.analyzed_tokens.toLocaleString()}} analyzed · ${{call.output_tokens.toLocaleString()}} output · ${{call.duration_ms}}ms</div>
           </div>
         </div>
         <div class="call-stats">

@@ -16,10 +16,12 @@ from core.calculator import Calculator, DEFAULT_MODEL
 class CapturedCall:
     index: int
     model: str
-    payload: dict
+    payload: dict           
+    actual_payload: dict    
     response_text: str
-    input_tokens: int
-    output_tokens: int
+    input_tokens: int      
+    output_tokens: int      
+    analyzed_tokens: int    
     parsed: ParsedPayload
     leaks: list[CostLeak]
     optimization: OptimizationResult
@@ -52,9 +54,14 @@ class TokenScopeSession:
     def total_tokens_saved(self) -> int:
         return sum(c.optimization.tokens_saved for c in self.calls)
 
+    @property
+    def total_analyzed_tokens(self) -> int:
+        return sum(c.analyzed_tokens for c in self.calls)
+
     def _record(
         self,
         payload: dict,
+        actual_payload: dict,
         response_text: str,
         input_tokens: int,
         output_tokens: int,
@@ -76,9 +83,11 @@ class TokenScopeSession:
             index=self._call_index,
             model=model_id,
             payload=payload,
+            actual_payload=actual_payload,
             response_text=response_text,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            analyzed_tokens=parsed.total_tokens,
             parsed=parsed,
             leaks=leaks,
             optimization=optimization,
@@ -125,19 +134,21 @@ class _ChatCompletionsWrapper:
         duration_ms = (time.perf_counter() - start) * 1000
 
         model_id = kwargs.get("model", self._scope._model_id)
-        messages = kwargs.get("messages", [])
 
-        payload = {**kwargs}
+
+        actual_payload = {**kwargs}
+        analyzed_payload = {**kwargs}
         for meta_val in tokenscope_meta.values():
             if isinstance(meta_val, dict):
-                payload.update(meta_val)
+                analyzed_payload.update(meta_val)
 
-        input_tokens = 0
+        from tokenscope.core.parser import parse_payload as _parse
+        input_tokens = _parse(actual_payload).total_tokens
+
         output_tokens = 0
         response_text = ""
 
         if hasattr(response, "usage") and response.usage:
-            input_tokens = response.usage.prompt_tokens or 0
             output_tokens = response.usage.completion_tokens or 0
 
         if hasattr(response, "choices") and response.choices:
@@ -145,14 +156,11 @@ class _ChatCompletionsWrapper:
             if hasattr(choice, "message") and hasattr(choice.message, "content"):
                 response_text = choice.message.content or ""
 
-        if input_tokens == 0:
-            from core.parser import parse_payload as _parse
-            input_tokens = _parse(payload).total_tokens
-
         model_pricing_id = self._resolve_model_id(model_id)
 
         self._scope.session._record(
-            payload=payload,
+            payload=analyzed_payload,
+            actual_payload=actual_payload,
             response_text=response_text,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
