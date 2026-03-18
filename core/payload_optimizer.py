@@ -47,7 +47,17 @@ class Optimizer:
         original_parsed = parse_payload(payload)
         original_tokens = original_parsed.total_tokens
 
-        active_rules = set(rules_to_apply) if rules_to_apply else {r for r in RuleId}
+        active_rules = set(rules_to_apply) if rules_to_apply is not None else {r for r in RuleId}
+
+        if not active_rules:
+            return OptimizationResult(
+                original_payload=payload,
+                optimized_payload=payload,
+                original_tokens=parse_payload(payload).total_tokens,
+                optimized_tokens=parse_payload(payload).total_tokens,
+                applied_rules=[],
+            )
+
         active_leaks = [l for l in leaks if l.rule_id in active_rules]
 
         optimized = copy.deepcopy(payload)

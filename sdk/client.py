@@ -116,14 +116,21 @@ class _ChatCompletionsWrapper:
     def __init__(self, scope: TokenScope):
         self._scope = scope
 
+    TOKENSCOPE_KEYS = {"extra_metadata", "extra_data"}
+
     def create(self, **kwargs) -> Any:
+        tokenscope_meta = {k: kwargs.pop(k) for k in list(kwargs) if k in self.TOKENSCOPE_KEYS}
         start = time.perf_counter()
         response = self._scope._client.chat.completions.create(**kwargs)
         duration_ms = (time.perf_counter() - start) * 1000
 
         model_id = kwargs.get("model", self._scope._model_id)
         messages = kwargs.get("messages", [])
-        payload = {k: v for k, v in kwargs.items()}
+
+        payload = {**kwargs}
+        for meta_val in tokenscope_meta.values():
+            if isinstance(meta_val, dict):
+                payload.update(meta_val)
 
         input_tokens = 0
         output_tokens = 0
@@ -139,7 +146,8 @@ class _ChatCompletionsWrapper:
                 response_text = choice.message.content or ""
 
         if input_tokens == 0:
-            input_tokens = self._scope.session._calculator._tokenizer_fallback(payload)
+            from core.parser import parse_payload as _parse
+            input_tokens = _parse(payload).total_tokens
 
         model_pricing_id = self._resolve_model_id(model_id)
 
@@ -157,13 +165,16 @@ class _ChatCompletionsWrapper:
     @staticmethod
     def _resolve_model_id(model: str) -> str:
         mapping = {
-            "gpt-4o": "gpt-4o",
             "gpt-4o-mini": "gpt-4o-mini",
-            "gpt-4-turbo": "gpt-4-turbo",
+            "gpt-4o": "gpt-4o",
             "gpt-4-turbo-preview": "gpt-4-turbo",
+            "gpt-4-turbo": "gpt-4-turbo",
             "gpt-4": "gpt-4-turbo",
+            "claude-3-5-sonnet": "claude-3-5-sonnet",
+            "claude-3-haiku": "claude-3-haiku",
+            "gemini-1-5-pro": "gemini-1-5-pro",
         }
         for key, val in mapping.items():
             if model.startswith(key):
                 return val
-        return "gpt-4o"
+        return model

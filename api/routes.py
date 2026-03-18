@@ -1,10 +1,6 @@
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fastapi import APIRouter, HTTPException
 
-from models import (
+from api.models import (
     AnalyzeRequest,
     AnalyzeResponse,
     FieldTokensResponse,
@@ -69,7 +65,7 @@ def analyze(request: AnalyzeRequest):
             field_type=f.field_type.value,
             is_leaf=f.is_leaf,
         )
-        for f in parsed.fields
+        for f in parsed.fields if f.is_leaf
     ]
 
     top_contributors = [
@@ -81,8 +77,8 @@ def analyze(request: AnalyzeRequest):
             field_type=f.field_type.value,
             is_leaf=f.is_leaf,
         )
-        for f in parsed.top_contributors
-    ]
+        for f in parsed.sorted_by_cost if f.is_leaf
+    ][:5]
 
     leak_responses = [
         CostLeakResponse(

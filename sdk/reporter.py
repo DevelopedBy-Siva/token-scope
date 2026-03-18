@@ -28,7 +28,11 @@ def generate_report(session, open_browser: bool = True) -> str:
                 "field_type": f.field_type.value,
                 "is_leaf": f.is_leaf,
             }
-            for f in sorted(call.parsed.fields, key=lambda x: x.attributed_tokens, reverse=True)[:20]
+            for f in sorted(
+                [x for x in call.parsed.fields if x.is_leaf],
+                key=lambda x: x.attributed_tokens,
+                reverse=True
+            )[:20]
         ]
         calls_data.append({
             "index": call.index,
@@ -60,12 +64,14 @@ def generate_report(session, open_browser: bool = True) -> str:
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"tokenscope_report_{timestamp}.html"
-    output_path = os.path.join(os.getcwd(), filename)
+    reports_dir = os.path.join(os.getcwd(), "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    output_path = os.path.join(reports_dir, filename)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    print(f"\n📊 TokenScope Report → {output_path}")
+    print(f"\nTokenScope Report → {output_path}")
     print(f"   {summary['total_calls']} calls · {summary['total_input_tokens']:,} input tokens · ${summary['total_cost_usd']:.4f} total cost")
     if summary["total_tokens_saved"] > 0:
         print(f"   💡 {summary['total_tokens_saved']:,} tokens could be saved with optimization")
@@ -141,7 +147,7 @@ def _build_html(summary: dict, calls: list) -> str:
 </head>
 <body>
 <div class="header">
-  <div class="logo">🔬</div>
+  <div class="logo"></div>
   <div>
     <h1>TokenScope Report</h1>
     <div class="sub">Generated {summary['generated_at']}</div>
