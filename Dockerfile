@@ -1,14 +1,15 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY core/ ./core/
+COPY pyproject.toml ./
+COPY src/ ./src/
 COPY api/ ./api/
 
-ENV PYTHONPATH=/app
+RUN pip install --no-cache-dir -e .
 
 EXPOSE 8000
 

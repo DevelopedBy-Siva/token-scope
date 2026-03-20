@@ -1,0 +1,78 @@
+{
+  "_updated": "2026-03-01",
+  "_note": "Prices in USD per 1M tokens. Update this file when providers change pricing.",
+  "models": {
+    "gpt-4o": {
+      "display_name": "GPT-4o",
+      "provider": "OpenAI",
+      "input_per_million": 2.5,
+      "output_per_million": 10.0
+    },
+    "gpt-4o-mini": {
+      "display_name": "GPT-4o mini",
+      "provider": "OpenAI",
+      "input_per_million": 0.15,
+      "output_per_million": 0.6
+    },
+    "gpt-4-turbo": {
+      "display_name": "GPT-4 Turbo",
+      "provider": "OpenAI",
+      "input_per_million": 10.0,
+      "output_per_million": 30.0
+    },
+    "o3": {
+      "display_name": "o3",
+      "provider": "OpenAI",
+      "input_per_million": 10.0,
+      "output_per_million": 40.0
+    },
+    "o3-mini": {
+      "display_name": "o3-mini",
+      "provider": "OpenAI",
+      "input_per_million": 1.1,
+      "output_per_million": 4.4
+    },
+    "claude-3-7-sonnet": {
+      "display_name": "Claude 3.7 Sonnet",
+      "provider": "Anthropic",
+      "input_per_million": 3.0,
+      "output_per_million": 15.0
+    },
+    "claude-3-5-sonnet": {
+      "display_name": "Claude 3.5 Sonnet",
+      "provider": "Anthropic",
+      "input_per_million": 3.0,
+      "output_per_million": 15.0
+    },
+    "claude-3-5-haiku": {
+      "display_name": "Claude 3.5 Haiku",
+      "provider": "Anthropic",
+      "input_per_million": 0.8,
+      "output_per_million": 4.0
+    },
+    "claude-3-haiku": {
+      "display_name": "Claude 3 Haiku",
+      "provider": "Anthropic",
+      "input_per_million": 0.25,
+      "output_per_million": 1.25
+    },
+    "gemini-2-0-flash": {
+      "display_name": "Gemini 2.0 Flash",
+      "provider": "Google",
+      "input_per_million": 0.1,
+      "output_per_million": 0.4
+    },
+    "gemini-1-5-pro": {
+      "display_name": "Gemini 1.5 Pro",
+      "provider": "Google",
+      "input_per_million": 1.25,
+      "output_per_million": 5.0
+    },
+    "gemini-1-5-flash": {
+      "display_name": "Gemini 1.5 Flash",
+      "provider": "Google",
+      "input_per_million": 0.075,
+      "output_per_million": 0.3
+    }
+  }
+}

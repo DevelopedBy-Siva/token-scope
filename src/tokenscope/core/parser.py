@@ -3,16 +3,16 @@ from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from typing import Any
 
-from core.tokenizer import Tokenizer
+from tokenscope.core.tokenizer import Tokenizer
 
 
 class FieldType(str, Enum):
-    STRING = "string"
-    NUMBER = "number"
+    STRING  = "string"
+    NUMBER  = "number"
     BOOLEAN = "boolean"
-    NULL = "null"
-    OBJECT = "object"
-    ARRAY = "array"
+    NULL    = "null"
+    OBJECT  = "object"
+    ARRAY   = "array"
 
 
 @dataclass
@@ -36,10 +36,6 @@ class ParsedField:
     @property
     def is_container(self) -> bool:
         return not self.is_leaf
-
-    @property
-    def total_tokens(self) -> int:
-        return self.attributed_tokens
 
 
 @dataclass
@@ -69,9 +65,6 @@ class ParsedPayload:
             return 0
         return max(f.depth for f in self.fields)
 
-    def fields_at_depth(self, depth: int) -> list[ParsedField]:
-        return [f for f in self.fields if f.depth == depth]
-
     def get(self, path: str) -> ParsedField | None:
         for f in self.fields:
             if f.path == path:
@@ -85,16 +78,13 @@ class Parser:
 
     def parse(self, payload: dict | list) -> ParsedPayload:
         attribution = self._tokenizer.attribute(payload)
-
         token_map: dict[str, tuple[int, int, float]] = {
             f.path: (f.raw_tokens, f.attributed_tokens, f.pct_of_total)
             for f in attribution.fields
         }
-
-        parsed_fields: list[ParsedField] = []
-        self._walk(payload, path="", depth=0, fields=parsed_fields, token_map=token_map)
-
-        return ParsedPayload(total_tokens=attribution.total_tokens, fields=parsed_fields)
+        fields: list[ParsedField] = []
+        self._walk(payload, path="", depth=0, fields=fields, token_map=token_map)
+        return ParsedPayload(total_tokens=attribution.total_tokens, fields=fields)
 
     def _walk(self, node: Any, path: str, depth: int, fields: list[ParsedField], token_map: dict) -> None:
         if isinstance(node, dict):
@@ -128,16 +118,11 @@ class Parser:
 
     @staticmethod
     def _type_of(value: Any) -> FieldType:
-        if isinstance(value, bool):
-            return FieldType.BOOLEAN
-        if isinstance(value, (int, float)):
-            return FieldType.NUMBER
-        if isinstance(value, str):
-            return FieldType.STRING
-        if isinstance(value, list):
-            return FieldType.ARRAY
-        if isinstance(value, dict):
-            return FieldType.OBJECT
+        if isinstance(value, bool):    return FieldType.BOOLEAN
+        if isinstance(value, (int, float)): return FieldType.NUMBER
+        if isinstance(value, str):     return FieldType.STRING
+        if isinstance(value, list):    return FieldType.ARRAY
+        if isinstance(value, dict):    return FieldType.OBJECT
         return FieldType.NULL
 
 

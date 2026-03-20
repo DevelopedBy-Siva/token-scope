@@ -7,11 +7,12 @@ from api.routes import router
 app = FastAPI(
     title="TokenScope API",
     description="Profile LLM API payloads. Find the waste. Cut the cost.",
-    version="1.0.0",
+    version="0.2.0",
+    docs_url="/docs",
+    redoc_url=None,
 )
 
-cors_origins_raw = os.environ.get("CORS_ORIGINS", "*")
-cors_origins = [o.strip() for o in cors_origins_raw.split(",")]
+cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +24,6 @@ app.add_middleware(
 app.include_router(router, prefix="/api/v1")
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
-    return {"name": "TokenScope API", "version": "1.0.0", "docs": "/docs"}
+    return {"name": "TokenScope API", "version": "0.2.0", "docs": "/docs"}

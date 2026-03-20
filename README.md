@@ -1,84 +1,116 @@
 # TokenScope
 
-### Profile your LLM payloads. Find the waste. Cut the cost.
+**Profile your LLM payloads. Find the waste. Cut the cost.**
 
 ```bash
 pip install llm-tokenscope
 ```
 
-**Live API:** https://token-scope.onrender.com  
-**PyPI:** https://pypi.org/project/llm-tokenscope  
-**Status:** 🟡 Backend complete · Web UI in progress
+Your LLM bill isn't just your prompt — it's JSON. Keys, nested objects, tool schemas, conversation history, metadata, context chunks. By the time it hits the API, your code has assembled something expensive that you've never actually looked at.
+
+TokenScope shows you which fields are burning your budget, detects structural waste, and generates an HTML report after your session.
 
 ---
 
-## The Problem
+## SDK
 
-You're paying too much for LLM API calls. But you don't know why.
+Wrap your existing client. Zero changes to your app logic.
 
-Your payload isn't just your prompt. It's JSON — keys, nested objects, tool schemas, conversation history, metadata, context chunks. By the time it hits the API, your code has assembled something expensive that you've never actually looked at.
-
-There's no tool that shows you _which fields_ are burning your budget. **TokenScope fixes that.**
-
----
-
-## Two Ways to Use It
-
-### 1. Python SDK — Profile Real Traffic
-
-Wrap your existing LLM client. Zero code changes to your app logic.
+### OpenAI / OpenAI-compatible
 
 ```python
 from tokenscope import TokenScope
 from openai import OpenAI
 
-with TokenScope(OpenAI()) as client:
-    response = client.chat.create(
+with TokenScope.wrap(OpenAI()) as client:
+    client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": "Hello!"}]
+        messages=[{"role": "user", "content": "Hello"}],
     )
-# HTML report opens automatically in your browser
+# HTML report written to ./reports/
 ```
 
-Works with any OpenAI-compatible API — OpenAI, Ollama, Together, Anyscale, anything.
+Works with any OpenAI-compatible API — OpenAI, Together, Anyscale, Ollama, anything.
 
-### 2. REST API — Analyze Any Payload
-
-```bash
-curl -X POST https://token-scope.onrender.com/api/v1/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "payload": {
-      "model": "gpt-4o",
-      "messages": [{"role": "user", "content": "Hello"}]
-    }
-  }'
+```python
+# Ollama example — cost shows $0.00, all other profiling works normally
+with TokenScope.wrap(OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")) as client:
+    client.chat.completions.create(model="llama3", messages=[...])
 ```
 
-### 3. Web UI _(coming soon)_
+### Anthropic SDK
 
-Paste any payload at `tokenscope.io` — no install, no signup, instant analysis.
+```python
+import anthropic
+from tokenscope import TokenScope
+
+with TokenScope.wrap(anthropic.Anthropic()) as client:
+    client.messages.create(
+        model="claude-3-7-sonnet-20250219",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+```
+
+### LangChain
+
+```python
+from tokenscope import TokenScope
+from langchain_openai import ChatOpenAI
+
+handler = TokenScope.langchain_handler()
+
+llm = ChatOpenAI(model="gpt-4o", callbacks=[handler])
+llm.invoke("Hello")
+
+handler.scope.report()  # write report manually
+```
+
+Or as a context manager:
+
+```python
+with TokenScope.langchain_handler() as handler:
+    chain.invoke({"input": "..."}, config={"callbacks": [handler]})
+```
+
+### Attach extra context for analysis
+
+Profile data that's generated in your app but stripped before the API call:
+
+```python
+with TokenScope.wrap(OpenAI()) as client:
+    client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Summarize"}],
+        extra_data={"retrieved_chunks": chunks},  # stripped before API call, included in leak analysis
+    )
+```
+
+### Manual report control
+
+```python
+scope = TokenScope()
+client = scope.wrap_openai(OpenAI())
+
+client.chat.completions.create(...)
+client.chat.completions.create(...)
+
+print(scope.session.total_input_tokens)
+print(scope.session.total_cost_usd)
+print(scope.session.total_tokens_saveable)
+
+scope.report()  # write report whenever you want
+```
 
 ---
 
-## The HTML Report
+## The Report
 
-After your session, a self-contained HTML report opens in your browser showing:
+After your session, a self-contained HTML report is written to `./reports/tokenscope_<timestamp>.html`.
 
-**Session Summary**
+**Session summary** — total calls, input tokens, output tokens, analyzed tokens, total cost, tokens saveable.
 
-- Total calls made
-- Sent tokens — tiktoken count of what was actually sent to the API
-- Analyzed tokens — full payload count including any extra context you attached
-- Total cost estimate
-- Total tokens saveable across all calls
-
-**Per Call**
-
-- Top cost fields — which specific JSON keys are most expensive (leaf fields only)
-- Cost Leaks — detected waste with severity and estimated savings
-- Sent vs analyzed vs output token counts
-- Cost and duration
+**Per call** — top fields by token cost, detected cost leaks with severity and savings estimate, cost and duration.
 
 ---
 
@@ -95,99 +127,29 @@ After your session, a self-contained HTML report opens in your browser showing:
 
 ---
 
-## SDK Usage
-
-### Basic
-
-```python
-from tokenscope import TokenScope
-from openai import OpenAI
-
-with TokenScope(OpenAI()) as client:
-    client.chat.create(model="gpt-4o", messages=[...])
-    client.chat.create(model="gpt-4o", messages=[...])
-# Report generated on exit
-```
-
-### With Ollama (local models)
-
-```python
-from tokenscope import TokenScope
-from openai import OpenAI
-
-with TokenScope(
-    OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
-) as client:
-    client.chat.create(model="llama3", messages=[...])
-# Cost shows $0.00 for local models — all other profiling works normally
-```
-
-### Attach Extra Context for Analysis
-
-Profile data that's generated in your app but isn't part of the message:
-
-```python
-client.chat.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Summarize"}],
-    extra_data={
-        "request_id": "abc-123",
-        "context": [{"text": chunk} for chunk in retrieved_chunks],
-    }
-)
-# extra_data is stripped before the API call
-# but included in the leak analysis and report
-```
-
-### Manual Report Control
-
-```python
-client = TokenScope(OpenAI(), auto_report=False)
-
-client.chat.create(...)
-client.chat.create(...)
-
-# Access session data
-print(client.session.total_input_tokens)
-print(client.session.total_cost_usd)
-print(client.session.total_tokens_saved)
-
-# Generate report whenever you want
-client.report()
-```
-
-### Context Manager
-
-```python
-with TokenScope(OpenAI(), auto_report=True) as client:
-    client.chat.create(...)
-# Report auto-opens when block exits
-```
-
----
-
 ## REST API
 
 **Base URL:** `https://token-scope.onrender.com`
 
 ### `POST /api/v1/analyze`
 
-**Request:**
-
-```json
-{
-  "payload": {},
-  "model_id": "gpt-4o",
-  "requests_per_day": 100,
-  "encoding": "cl100k_base"
-}
+```bash
+curl -X POST https://token-scope.onrender.com/api/v1/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payload": {
+      "model": "gpt-4o",
+      "messages": [{"role": "user", "content": "Hello"}]
+    },
+    "model_id": "gpt-4o",
+    "requests_per_day": 100
+  }'
 ```
 
 **Response includes:**
 
 - `total_tokens` — exact tiktoken count
-- `fields` — per-field token attribution (leaf fields only)
-- `top_contributors` — top 5 most expensive fields
+- `top_fields` — top 5 most expensive leaf fields
 - `leaks` — detected cost leaks with severity and savings estimate
 - `optimization` — cleaned payload with tokens saved
 - `cost` — per-request cost breakdown
@@ -197,49 +159,44 @@ with TokenScope(OpenAI(), auto_report=True) as client:
 ### `GET /api/v1/health`
 
 ```json
-{ "status": "ok", "version": "1.0.0" }
+{ "status": "ok", "version": "0.2.0" }
 ```
 
 ---
 
-## Supported Models for Cost Calculation
+## Supported Models
 
 | Model             | Provider  | Input (per 1M) | Output (per 1M) |
 | ----------------- | --------- | -------------- | --------------- |
 | GPT-4o            | OpenAI    | $2.50          | $10.00          |
 | GPT-4o mini       | OpenAI    | $0.15          | $0.60           |
 | GPT-4 Turbo       | OpenAI    | $10.00         | $30.00          |
+| o3                | OpenAI    | $10.00         | $40.00          |
+| o3-mini           | OpenAI    | $1.10          | $4.40           |
+| Claude 3.7 Sonnet | Anthropic | $3.00          | $15.00          |
 | Claude 3.5 Sonnet | Anthropic | $3.00          | $15.00          |
+| Claude 3.5 Haiku  | Anthropic | $0.80          | $4.00           |
 | Claude 3 Haiku    | Anthropic | $0.25          | $1.25           |
+| Gemini 2.0 Flash  | Google    | $0.10          | $0.40           |
 | Gemini 1.5 Pro    | Google    | $1.25          | $5.00           |
+| Gemini 1.5 Flash  | Google    | $0.075         | $0.30           |
 
-Any model not in this list (Ollama, local models, etc.) shows `$0.00` — all other profiling works normally.
+Pricing is stored in `src/tokenscope/prices.json` and loaded at runtime. A warning is shown if the file is more than 60 days old. Unknown models show `$0.00` — all other profiling works normally.
 
 ---
 
 ## How Token Counting Works
 
-TokenScope uses `tiktoken` — OpenAI's own tokenizer. Token counting is deterministic math, not inference. No API calls. No data leaves your machine.
+TokenScope uses `tiktoken` — OpenAI's tokenizer. Token counting is deterministic math, no API calls, no data leaves your machine.
 
 **Accuracy:** Exact for OpenAI models. ~95% for Claude. ~90% for Gemini.
 
 **Two token counts per call:**
 
-- **Sent tokens** — tiktoken count of what was actually sent to the API. Your billing estimate.
-- **Analyzed tokens** — full payload count including `extra_data`. What leak detection works against.
+- **Input tokens** — tiktoken count of what was actually sent to the API
+- **Analyzed tokens** — full payload count including `extra_data`. What leak detection runs against.
 
----
-
-## Architecture
-
-```
-core/                     ← pure Python, zero framework dependencies
-        ↓                              ↓
-api/                               sdk/
-(FastAPI → Web UI)         (direct import, no HTTP)
-```
-
-One core engine. Two consumers. The SDK imports `core/` directly — no server needed, works fully offline.
+Per-field attribution is proportionally estimated. The session total is always exact.
 
 ---
 
@@ -247,26 +204,33 @@ One core engine. Two consumers. The SDK imports `core/` directly — no server n
 
 ```
 token-scope/
-├── core/
-│   ├── tokenizer.py         ← per-field token counting
-│   ├── parser.py            ← JSON tree walker
-│   ├── leak_detector.py     ← 6-rule waste detection engine
-│   ├── payload_optimizer.py ← applies fixes, outputs clean payload
-│   └── calculator.py        ← token → dollar cost
+├── pyproject.toml
+├── Dockerfile
+│
+├── src/
+│   └── tokenscope/
+│       ├── __init__.py          ← public API: TokenScope, TokenScopeSession
+│       ├── client.py            ← OpenAI wrapper, Anthropic wrapper, LangChain handler
+│       ├── reporter.py          ← writes reports/ HTML
+│       ├── prices.json          ← pricing data, update without touching code
+│       └── core/
+│           ├── tokenizer.py     ← tiktoken wrapper, per-field attribution
+│           ├── parser.py        ← JSON tree walker
+│           ├── leak_detector.py ← 6-rule waste detection
+│           ├── payload_optimizer.py
+│           └── calculator.py   ← token counts → dollar costs
 │
 ├── api/
-│   ├── main.py              ← FastAPI + CORS
-│   ├── routes.py            ← /analyze, /health
-│   └── models.py            ← Pydantic models
+│   ├── main.py                  ← FastAPI app
+│   ├── routes.py                ← /analyze, /health
+│   └── models.py                ← Pydantic request/response models
 │
-├── sdk/
-│   ├── client.py            ← wraps OpenAI-compatible clients
-│   └── reporter.py          ← generates HTML report
-│
-├── web/                     ← React + Vite (in progress)
-├── Dockerfile
-├── render.yaml
-└── requirements.txt
+└── tests/
+    ├── test_calculator.py
+    ├── test_leak_detector.py
+    ├── test_payload_optimizer.py
+    ├── test_tokenizer_parser.py
+    └── test_api.py
 ```
 
 ---
@@ -276,34 +240,22 @@ token-scope/
 ```bash
 git clone https://github.com/DevelopedBy-Siva/token-scope
 cd token-scope
-pip install -r requirements.txt
 
-# Start the API
-cd api && uvicorn main:app --reload
+# SDK only
+pip install -e .
 
-# Use the SDK from source
-from sdk import TokenScope
+# API
+pip install -e ".[api]"
+uvicorn api.main:app --reload
+
+# Tests
+pip install -e ".[dev]"
+pytest
 ```
 
----
+## Docker
 
-## Why Not Existing Tools?
-
-| Tool       | What It Does                  | What It Misses                   |
-| ---------- | ----------------------------- | -------------------------------- |
-| Helicone   | Logs calls, tracks total cost | No field-level attribution       |
-| LangSmith  | Observability for LangChain   | LangChain-only, not cost-focused |
-| Braintrust | Evaluation and logging        | Not cost optimization focused    |
-| Portkey    | LLM gateway with analytics    | Broad but shallow                |
-
-**TokenScope is the only tool that attributes token costs to individual JSON fields, detects structural waste, and shows you the optimized version.**
-
----
-
-## License
-
-MIT — use it, fork it, learn from it.
-
----
-
-_Built to understand LLM costs, not guess at them._
+```bash
+docker build -t tokenscope .
+docker run -p 8000:8000 tokenscope
+```

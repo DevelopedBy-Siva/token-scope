@@ -1,9 +1,8 @@
 import re
-import hashlib
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 
-from core.parser import ParsedPayload, ParsedField, FieldType
+from tokenscope.core.parser import ParsedPayload, ParsedField, FieldType
 
 
 class Severity(str, Enum):
@@ -35,12 +34,12 @@ class CostLeak:
         return {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}[self.severity]
 
 
-VERBOSE_SCHEMA_TOKEN_THRESHOLD  = 200
-BLOATED_ARRAY_MIN_ITEMS         = 3
-BLOATED_ARRAY_SIMILARITY_RATIO  = 0.5
-REPEATED_KEY_MIN_COUNT          = 5
-DEEP_NESTING_MIN_DEPTH          = 4
-DUPLICATE_MIN_CHARS             = 50
+VERBOSE_SCHEMA_TOKEN_THRESHOLD = 200
+BLOATED_ARRAY_MIN_ITEMS        = 3
+BLOATED_ARRAY_SIMILARITY_RATIO = 0.5
+REPEATED_KEY_MIN_COUNT         = 5
+DEEP_NESTING_MIN_DEPTH         = 4
+DUPLICATE_MIN_CHARS            = 50
 
 
 class Detector:
@@ -57,6 +56,8 @@ class Detector:
     def _check_verbose_schema(self, payload: ParsedPayload) -> list[CostLeak]:
         leaks = []
         for field in payload.fields:
+            if not field.is_leaf:
+                continue
             check_tokens = max(field.raw_tokens, field.attributed_tokens)
             if check_tokens >= VERBOSE_SCHEMA_TOKEN_THRESHOLD:
                 leaks.append(CostLeak(
@@ -128,8 +129,7 @@ class Detector:
         leaks = []
         string_fields = [
             f for f in payload.fields
-            if f.field_type == FieldType.STRING
-            and (f.char_length or 0) >= DUPLICATE_MIN_CHARS
+            if f.field_type == FieldType.STRING and (f.char_length or 0) >= DUPLICATE_MIN_CHARS
         ]
 
         sentence_index: dict[str, list[ParsedField]] = {}
@@ -140,7 +140,6 @@ class Detector:
                     sentence_index.setdefault(norm, []).append(field)
 
         already_flagged: set[str] = set()
-
         for sentence, fields in sentence_index.items():
             unique_fields = list({f.path: f for f in fields}.values())
             if len(unique_fields) >= 2:
@@ -155,19 +154,16 @@ class Detector:
                     path=unique_fields[0].path,
                     description=(
                         f"Shared content detected across {len(unique_fields)} fields: "
-                        f"{', '.join(paths)}. "
-                        f"Deduplicating saves ~{savings} tokens."
+                        f"{', '.join(paths)}. Deduplicating saves ~{savings} tokens."
                     ),
                     estimated_savings=savings,
                     affected_paths=paths,
                 ))
-
         return leaks
 
     @staticmethod
     def _sentences(text: str) -> list[str]:
-        import re as _re
-        parts = _re.split(r'(?<=[.!?])\s+', text.strip())
+        parts = re.split(r'(?<=[.!?])\s+', text.strip())
         return [p for p in parts if len(p) >= DUPLICATE_MIN_CHARS]
 
     def _check_repeated_keys(self, payload: ParsedPayload) -> list[CostLeak]:
@@ -207,8 +203,7 @@ class Detector:
             if not field.is_leaf:
                 continue
 
-            is_low_signal = False
-            reason = ""
+            is_low_signal, reason = False, ""
 
             if field.field_type == FieldType.STRING and isinstance(field.value, str):
                 if self._UUID_PATTERN.match(field.value):
@@ -219,7 +214,7 @@ class Detector:
                     is_low_signal, reason = True, "unix timestamp value"
 
             if not is_low_signal and field.key and self._ID_KEY_PATTERN.match(field.key):
-                is_low_signal, reason = True, f"key '{field.key}' is a metadata identifier"
+                is_low_signal, reason = True, "metadata identifier"
 
             if is_low_signal and field.attributed_tokens > 0:
                 leaks.append(CostLeak(
@@ -227,7 +222,7 @@ class Detector:
                     severity=Severity.MEDIUM,
                     path=field.path,
                     description=(
-                        f"'{field.path}' contains a {reason} "
+                        f"'{field.path}' is a {reason} "
                         f"({field.attributed_tokens} tokens). "
                         f"Models don't reason over identifiers — safe to remove."
                     ),
@@ -239,7 +234,6 @@ class Detector:
     def _check_deep_nesting(self, payload: ParsedPayload) -> list[CostLeak]:
         leaks = []
         deep_fields = [f for f in payload.fields if f.depth >= DEEP_NESTING_MIN_DEPTH]
-
         if not deep_fields:
             return leaks
 
